@@ -1,0 +1,33 @@
+package com.mrantiai.data
+
+import android.content.Context
+import android.content.SharedPreferences
+
+object StatsManager {
+    private const val PREFS_NAME = "mr_anti_ai_stats"
+    private const val KEY_YT_SKIPS = "yt_skips"
+    private const val KEY_IG_SKIPS = "ig_skips"
+
+    private fun getPrefs(context: Context): SharedPreferences {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    fun incrementYt(context: Context) {
+        val prefs = getPrefs(context)
+        val current = prefs.getInt(KEY_YT_SKIPS, 0)
+        prefs.edit().putInt(KEY_YT_SKIPS, current + 1).apply()
+    }
+
+    fun incrementIg(context: Context) {
+        val prefs = getPrefs(context)
+        val current = prefs.getInt(KEY_IG_SKIPS, 0)
+        prefs.edit().putInt(KEY_IG_SKIPS, current + 1).apply()
+    }
+
+    fun getCounts(context: Context): Pair<Int, Int> {
+        val prefs = getPrefs(context)
+        val yt = prefs.getInt(KEY_YT_SKIPS, 0)
+        val ig = prefs.getInt(KEY_IG_SKIPS, 0)
+        return Pair(yt, ig)
+    }
+}
