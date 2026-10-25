@@ -1,0 +1,87 @@
+package com.mrantiai.service
+
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import com.mrantiai.data.StatsManager
+
+class AntiAIAccessibilityService : AccessibilityService() {
+
+    private val targetKeywords = listOf(
+        "altered or synthetic content",
+        "sound or visual content was altered or generated digitally",
+        "made with ai",
+        "imagined with ai",
+        "ai generated",
+        "generated with ai"
+    )
+
+    private var lastGestureTime = 0L
+    private val gestureCooldownMs = 1500L
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null) return
+        val packageName = event.packageName?.toString() ?: return
+
+        val isYouTube = packageName.contains("youtube")
+        val isInstagram = packageName.contains("instagram")
+
+        if (!isYouTube && !isInstagram) return
+
+        val rootNode = rootInActiveWindow ?: return
+        if (scanForAIKeywords(rootNode)) {
+            val now = System.currentTimeMillis()
+            if (now - lastGestureTime > gestureCooldownMs) {
+                lastGestureTime = now
+                performSwipeUp()
+                if (isYouTube) {
+                    StatsManager.incrementYt(applicationContext)
+                } else if (isInstagram) {
+                    StatsManager.incrementIg(applicationContext)
+                }
+            }
+        }
+    }
+
+    private fun scanForAIKeywords(node: AccessibilityNodeInfo): Boolean {
+        val text = node.text?.toString()?.lowercase()
+        val desc = node.contentDescription?.toString()?.lowercase()
+
+        for (kw in targetKeywords) {
+            if (text != null && text.contains(kw)) return true
+            if (desc != null && desc.contains(kw)) return true
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            if (scanForAIKeywords(child)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun performSwipeUp() {
+        val displayMetrics = resources.displayMetrics
+        val width = displayMetrics.widthPixels
+        val height = displayMetrics.heightPixels
+
+        val startX = width / 2f
+        val startY = height * 0.8f
+        val endX = width / 2f
+        val endY = height * 0.2f
+
+        val swipePath = Path()
+        swipePath.moveTo(startX, startY)
+        swipePath.lineTo(endX, endY)
+
+        val gestureBuilder = GestureDescription.Builder()
+        gestureBuilder.addStroke(GestureDescription.StrokeDescription(swipePath, 0, 200))
+
+        dispatchGesture(gestureBuilder.build(), null, null)
+    }
+
+    override fun onInterrupt() {}
+}
